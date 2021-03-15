@@ -1,0 +1,46 @@
+# Use postgres/example user/password credentials
+version: '3.5'
+
+services:
+  postgres:
+    container_name: postgres_sql
+    image: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rYZsg8LQpmiqf}
+      PGDATA: /data/postgres
+      POSTGRES_DB: archive
+    volumes:
+       - database_data:/var/lib/postgresql/data
+       - postgres:/data/postgres
+       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - 5445:5445
+    networks:
+      - mina-network
+    restart: always
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-rYZsg8LQpmiqf}
+    volumes:
+       - pgadmin:/root/.pgadmin
+    ports:
+      - ${PGADMIN_PORT:-5050}:80
+    networks:
+      - mina-network
+    restart: always
+
+networks:
+  mina-network:
+    driver: bridge
+
+volumes:
+    postgres:
+    pgadmin:
+    database_data:
+
+
