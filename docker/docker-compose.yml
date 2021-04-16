@@ -1,6 +1,42 @@
 version: '3.5'
 
 services:
+  mina:
+    container_name: mina
+    image: minaprotocol/mina-daemon-baked:${MINA_TAG_MAIN}
+    #--run-snark-coordinator ${COINBASE_RECEIVER}
+    command: >
+        daemon 
+        --archive-address mina_archive:${ARCHIVE_PORT} 
+        --peer-list-url ${MINA_PEER_LIST_MAIN} 
+        --snark-worker-fee ${SNARK_WORKER_FEE} 
+        --work-selection ${WORK_SELECTION} 
+        --coinbase-receiver ${COINBASE_RECEIVER} 
+        --block-producer-key /keys/my-wallet 
+        --file-log-level Info 
+        --log-level Info 
+        --insecure-rest-server 
+        --libp2p-metrics-port 6070 
+        --metrics-port 6060
+    environment:
+      - CODA_PRIVKEY_PASS=${ENV_MINA_PRIVKEY_PASS}
+      - CODA_CLIENT_TRUSTLIST=${ENV_MINA_CLIENT_TRASTLIST}
+    volumes:
+      - ../mina/keys:/keys:ro
+      - ../mina/.mina-config:/root/.mina-config:rw
+    ports:
+      - "8301:8301"
+      - "8302:8302"
+    restart: always
+    logging:
+      options:
+        max-size: ${MINA_LOG_MAX_SIZE:-4m}
+        max-file: ${MINA_LOG_MAX_FILE:-10}
+    depends_on:
+      - mina_archive
+    networks:
+      - mina_network
+
   postgres_service:
     container_name: postgres_sql
     image: postgres
@@ -51,6 +87,22 @@ services:
     networks:
       - mina_network
   
+  mina_sidecar:
+    container_name: mina_sidecar
+    image: minaprotocol/mina-bp-stats-sidecar:latest
+    environment:
+      MINA_BP_UPLOAD_URL: ${MINA_BP_UPLOAD_URL}
+      MINA_NODE_URL: ${MINA_SIDECAR_NODE_URL}
+    restart: always
+    logging:
+      options:
+        max-size: ${MINA_LOG_MAX_SIZE:-4m}
+        max-file: ${MINA_LOG_MAX_FILE:-10}
+    depends_on:
+      - mina        
+    networks:
+      - mina_network
+
   nginx_service:
     image: nginx:latest
     container_name: nginx
@@ -58,20 +110,65 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
        - pgadmin_service
+       - cadvisor
+       - node_exporter
+       - mina
     ports:
       - "1585:1585"
       - "5050:5050"
+      - "6060:6060"
+      - "6070:6070"
+      - "9100:9100"
+      - "6080:6080"
     networks:
       - mina_network
+      - n-exporter
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: ${MINA_LOG_MAX_SIZE:-4m}
+        max-file: ${MINA_LOG_MAX_FILE:-10}
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - n-exporter
+
+  cadvisor:
+    image: google/cadvisor:latest
+    privileged: true
+    container_name: cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    expose:
+      - 8080     
+    networks:
+      - n-exporter     
 
 networks:
   mina_network:
     name: mina_network
+    driver: bridge
+  n-exporter:
+    name: n-exporter
     driver: bridge
 
 volumes:
     postgres:
     pgadmin:
     database_data:
-
-
