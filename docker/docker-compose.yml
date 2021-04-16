@@ -73,7 +73,7 @@ services:
 
   mina_archive:
     container_name: mina_archive
-    image: "minaprotocol/mina-archive:1.1.3-48401e9"
+    image: "minaprotocol/mina-archive:${MINA_TAG_MAIN}"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -114,12 +114,12 @@ services:
        - node_exporter
        - mina
     ports:
-      - "1585:1585"
-      - "5050:5050"
-      - "6060:6060"
-      - "6070:6070"
-      - "9100:9100"
-      - "6080:6080"
+       - ${GRAPHQL_PORT}
+       - ${PGADMIN_PORT}
+       - ${METRICS_PORT}
+       - ${LIBP2PMETRICS_PORT}
+       - ${NODEEXPORTER_PORT}
+       - ${OTHERMETRIC_PORT}
     networks:
       - mina_network
       - n-exporter
